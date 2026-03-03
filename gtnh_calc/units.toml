@@ -1,0 +1,97 @@
+# ============================================================
+# GTNH Calculator — Unit & Constant Configuration
+# ============================================================
+# Edit this file to add, remove, or tweak units and constants.
+#
+# Each [units.<NAME>] section defines a unit:
+#   dimension   — the physical dimension it measures
+#   factor      — conversion factor to the *base* unit of that dimension
+#                 (the base unit has factor = 1.0)
+#   aliases     — (optional) list of shorter names
+#   description — (optional) human-readable note
+#
+# Each entry under [constants] defines a named value:
+#   value — numeric value
+#   unit  — (optional) unit expression, e.g. "EU", "EU/tick"
+# ============================================================
+
+# ── Energy ───────────────────────────────────────────────────
+[units.EU]
+dimension   = "energy"
+factor      = 1.0
+description = "Energy Unit — base energy unit in GregTech"
+
+[units.RF]
+dimension   = "energy"
+factor      = 0.25
+aliases     = ["rf"]
+description = "Redstone Flux (4 RF = 1 EU)"
+
+# ── Time ─────────────────────────────────────────────────────
+[units.tick]
+dimension   = "time"
+factor      = 1.0
+aliases     = ["t"]
+description = "Game tick — base time unit (1/20 s)"
+
+[units.second]
+dimension   = "time"
+factor      = 20.0
+aliases     = ["s", "sec"]
+description = "Second (20 ticks)"
+
+[units.minute]
+dimension   = "time"
+factor      = 1200.0
+aliases     = ["mins"]
+description = "Minute (60 seconds)"
+
+[units.hour]
+dimension   = "time"
+factor      = 72000.0
+aliases     = ["hr", "hours"]
+description = "Hour (60 minutes)"
+
+# ── Volume (fluid) ──────────────────────────────────────────
+[units.L]
+dimension   = "volume"
+factor      = 1.0
+description = "Liter — base volume unit (= 1 mB)"
+
+[units.mB]
+dimension   = "volume"
+factor      = 1.0
+aliases     = ["mb"]
+description = "Millibucket (= 1 L)"
+
+[units.B]
+dimension   = "volume"
+factor      = 1000.0
+aliases     = ["bucket", "buckets"]
+description = "Bucket (1000 L)"
+
+# ── Item count ───────────────────────────────────────────────
+[units.item]
+dimension   = "count"
+factor      = 1.0
+aliases     = ["items"]
+description = "Single item — base count unit"
+
+[units.stack]
+dimension   = "count"
+factor      = 64.0
+aliases     = ["stacks"]
+description = "Stack (64 items)"
+
+# ── Voltage-tier constants (EU/t) ───────────────────────────
+[constants]
+ULV = { value = 8,       unit = "EU/tick" }
+LV  = { value = 32,      unit = "EU/tick" }
+MV  = { value = 128,     unit = "EU/tick" }
+HV  = { value = 512,     unit = "EU/tick" }
+EV  = { value = 2048,    unit = "EU/tick" }
+IV  = { value = 8192,    unit = "EU/tick" }
+LuV = { value = 32768,   unit = "EU/tick" }
+ZPM = { value = 131072,  unit = "EU/tick" }
+UV  = { value = 524288,  unit = "EU/tick" }
+UHV = { value = 2097152, unit = "EU/tick" }
