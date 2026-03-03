@@ -20,13 +20,15 @@ class Unit:
     - labels: mapping from dimension name to display label (e.g. {"energy": "EU"})
     """
 
-    __slots__ = ("scale", "dims", "labels")
+    __slots__ = ("scale", "dims", "labels", "dim_factors")
 
     def __init__(
         self,
         scale: float = 1.0,
         dims: dict[str, int] | None = None,
         labels: dict[str, str] | None = None,
+        *,
+        dim_factors: dict[str, float] | None = None,
     ):
         self.scale = scale
         self.dims = {k: v for k, v in (dims or {}).items() if v != 0}
@@ -35,6 +37,15 @@ class Unit:
             self.labels = {k: v for k, v in labels.items() if k in self.dims}
         else:
             self.labels = {}
+        # Per-dimension scale factors — used to correctly handle dimension
+        # cancellation during arithmetic (see _mul_with_residual).
+        if dim_factors is not None:
+            self.dim_factors = {k: v for k, v in dim_factors.items() if k in self.dims}
+        elif len(self.dims) == 1:
+            dim, exp = next(iter(self.dims.items()))
+            self.dim_factors = {dim: scale ** (1.0 / exp)}
+        else:
+            self.dim_factors = {}
 
     @property
     def is_dimensionless(self) -> bool:
@@ -47,36 +58,129 @@ class Unit:
     def inverse(self) -> Unit:
         """Return the multiplicative inverse of this unit."""
         new_dims = {k: -v for k, v in self.dims.items()}
-        return Unit(1.0 / self.scale, new_dims, dict(self.labels))
+        return Unit(
+            1.0 / self.scale, new_dims, dict(self.labels),
+            dim_factors=dict(self.dim_factors),
+        )
 
     # --- Arithmetic between Units ---
 
     def __mul__(self, other: Unit) -> Unit:
         new_dims = dict(self.dims)
         new_labels = dict(self.labels)
+        new_df = dict(self.dim_factors)
         for dim, exp in other.dims.items():
             new_dims[dim] = new_dims.get(dim, 0) + exp
         for dim, label in other.labels.items():
             if dim not in new_labels:
                 new_labels[dim] = label
-        return Unit(self.scale * other.scale, new_dims, new_labels)
+        for dim, factor in other.dim_factors.items():
+            if dim not in new_df:
+                new_df[dim] = factor
+        return Unit(self.scale * other.scale, new_dims, new_labels, dim_factors=new_df)
 
     def __truediv__(self, other: Unit) -> Unit:
         new_dims = dict(self.dims)
         new_labels = dict(self.labels)
+        new_df = dict(self.dim_factors)
         for dim, exp in other.dims.items():
             new_dims[dim] = new_dims.get(dim, 0) - exp
         for dim, label in other.labels.items():
             if dim not in new_labels:
                 new_labels[dim] = label
-        return Unit(self.scale / other.scale, new_dims, new_labels)
+        for dim, factor in other.dim_factors.items():
+            if dim not in new_df:
+                new_df[dim] = factor
+        return Unit(self.scale / other.scale, new_dims, new_labels, dim_factors=new_df)
 
     def __pow__(self, power: int | float) -> Unit:
         new_dims = {}
         for k, v in self.dims.items():
             new_exp = v * power
             new_dims[k] = int(new_exp) if new_exp == int(new_exp) else new_exp
-        return Unit(self.scale**power, new_dims, dict(self.labels))
+        return Unit(
+            self.scale**power, new_dims, dict(self.labels),
+            dim_factors=dict(self.dim_factors),
+        )
+
+    # --- Residual-aware arithmetic (used by Quantity) ---
+
+    def _mul_with_residual(self, other: Unit) -> tuple[Unit, float]:
+        """Multiply two units, extracting residual from cancelled dimensions.
+
+        Returns ``(result_unit, residual)`` where *residual* is the scale
+        contribution from dimensions whose exponents summed to zero.  The
+        caller should multiply the numeric value by this residual so that
+        the physical meaning is preserved.
+        """
+        new_dims = dict(self.dims)
+        new_labels = dict(self.labels)
+        new_df = dict(self.dim_factors)
+        cancelled_scale = 1.0
+
+        for dim, other_exp in other.dims.items():
+            self_exp = new_dims.get(dim, 0)
+            new_exp = self_exp + other_exp
+            new_dims[dim] = new_exp
+
+            if dim not in new_labels and dim in other.labels:
+                new_labels[dim] = other.labels[dim]
+            if dim not in new_df and dim in other.dim_factors:
+                new_df[dim] = other.dim_factors[dim]
+
+            if new_exp == 0:
+                sf = self.dim_factors.get(dim, 1.0)
+                of = other.dim_factors.get(dim, 1.0)
+                cancelled_scale *= (sf ** self_exp) * (of ** other_exp)
+                new_df.pop(dim, None)
+
+        new_dims = {k: v for k, v in new_dims.items() if v != 0}
+        new_labels = {k: v for k, v in new_labels.items() if k in new_dims}
+        new_df = {k: v for k, v in new_df.items() if k in new_dims}
+
+        new_scale = (
+            self.scale * other.scale / cancelled_scale
+            if cancelled_scale != 0
+            else self.scale * other.scale
+        )
+        result = Unit(new_scale, new_dims, new_labels, dim_factors=new_df)
+        return result, cancelled_scale
+
+    def _div_with_residual(self, other: Unit) -> tuple[Unit, float]:
+        """Divide two units, extracting residual from cancelled dimensions."""
+        new_dims = dict(self.dims)
+        new_labels = dict(self.labels)
+        new_df = dict(self.dim_factors)
+        cancelled_scale = 1.0
+
+        for dim, other_exp in other.dims.items():
+            self_exp = new_dims.get(dim, 0)
+            new_exp = self_exp - other_exp
+            new_dims[dim] = new_exp
+
+            if dim not in new_labels and dim in other.labels:
+                new_labels[dim] = other.labels[dim]
+            if dim not in new_df and dim in other.dim_factors:
+                new_df[dim] = other.dim_factors[dim]
+
+            if new_exp == 0:
+                sf = self.dim_factors.get(dim, 1.0)
+                of = other.dim_factors.get(dim, 1.0)
+                cancelled_scale *= (sf ** self_exp) * (of ** (-other_exp))
+                new_df.pop(dim, None)
+
+        new_dims = {k: v for k, v in new_dims.items() if v != 0}
+        new_labels = {k: v for k, v in new_labels.items() if k in new_dims}
+        new_df = {k: v for k, v in new_df.items() if k in new_dims}
+
+        compound = self.scale / other.scale
+        new_scale = (
+            compound / cancelled_scale
+            if cancelled_scale != 0
+            else compound
+        )
+        result = Unit(new_scale, new_dims, new_labels, dim_factors=new_df)
+        return result, cancelled_scale
 
     # --- Display ---
 
@@ -165,6 +269,45 @@ class Unit:
             return numer + theme.style_operator("/") + denom
         return numer if numer_parts else ""
 
+    def format_html(self) -> str:
+        """Format the unit as an HTML string for Jupyter display."""
+        if not self.dims:
+            return ""
+
+        numer_parts: list[str] = []
+        denom_parts: list[str] = []
+
+        for dim in sorted(self.dims.keys()):
+            exp = self.dims[dim]
+            label = self.labels.get(dim, dim)
+            safe = label  # labels are short ASCII, no escaping needed
+            if exp > 0:
+                if exp == 1:
+                    numer_parts.append(f'<span style="color:#6cb6ff">{safe}</span>')
+                else:
+                    e = int(exp) if exp == int(exp) else exp
+                    numer_parts.append(
+                        f'<span style="color:#6cb6ff">{safe}</span>'
+                        f'<sup>{e}</sup>'
+                    )
+            elif exp < 0:
+                aexp = -exp
+                if aexp == 1:
+                    denom_parts.append(f'<span style="color:#6cb6ff">{safe}</span>')
+                else:
+                    e = int(aexp) if aexp == int(aexp) else aexp
+                    denom_parts.append(
+                        f'<span style="color:#6cb6ff">{safe}</span>'
+                        f'<sup>{e}</sup>'
+                    )
+
+        numer = '<span style="color:#888">\u00b7</span>'.join(numer_parts) if numer_parts else '1'
+
+        if denom_parts:
+            denom = '<span style="color:#888">\u00b7</span>'.join(denom_parts)
+            return f'{numer}<span style="color:#888">/</span>{denom}'
+        return numer if numer_parts else ""
+
     def __repr__(self) -> str:
         return self.format() or "(dimensionless)"
 
@@ -183,7 +326,10 @@ class Unit:
 
 def _copy_unit(unit: Unit) -> Unit:
     """Create a shallow copy of a Unit."""
-    return Unit(unit.scale, dict(unit.dims), dict(unit.labels))
+    return Unit(
+        unit.scale, dict(unit.dims), dict(unit.labels),
+        dim_factors=dict(unit.dim_factors),
+    )
 
 
 class Quantity:
@@ -334,8 +480,8 @@ class Quantity:
 
     def __mul__(self, other: Quantity | Number) -> Quantity:
         if isinstance(other, Quantity):
-            new_unit = self.unit * other.unit
-            return Quantity(self.value * other.value, new_unit)
+            new_unit, residual = self.unit._mul_with_residual(other.unit)
+            return Quantity(self.value * other.value * residual, new_unit)
         if isinstance(other, (int, float)):
             return Quantity(self.value * other, _copy_unit(self.unit))
         return NotImplemented
@@ -347,8 +493,8 @@ class Quantity:
 
     def __truediv__(self, other: Quantity | Number) -> Quantity:
         if isinstance(other, Quantity):
-            new_unit = self.unit / other.unit
-            return Quantity(self.value / other.value, new_unit)
+            new_unit, residual = self.unit._div_with_residual(other.unit)
+            return Quantity(self.value / other.value * residual, new_unit)
         if isinstance(other, (int, float)):
             return Quantity(self.value / other, _copy_unit(self.unit))
         return NotImplemented
@@ -361,8 +507,9 @@ class Quantity:
 
     def __floordiv__(self, other: Quantity | Number) -> Quantity:
         if isinstance(other, Quantity):
-            new_unit = self.unit / other.unit
-            return Quantity(self.value // other.value, new_unit)
+            new_unit, residual = self.unit._div_with_residual(other.unit)
+            raw = self.value / other.value * residual
+            return Quantity(float(math.floor(raw)), new_unit)
         if isinstance(other, (int, float)):
             return Quantity(self.value // other, _copy_unit(self.unit))
         return NotImplemented
@@ -500,6 +647,15 @@ class Quantity:
         if unit_str:
             return f"{val_str} {unit_str}"
         return val_str
+
+    def _repr_html_(self) -> str:
+        """Rich HTML representation for Jupyter notebooks."""
+        val_str = self._format_number(self.value)
+        unit_html = self.unit.format_html()
+        num = f'<span style="color:#f0c674;font-weight:bold">{val_str}</span>'
+        if unit_html:
+            return f'{num} {unit_html}'
+        return num
 
     def __format__(self, spec: str) -> str:
         if spec:

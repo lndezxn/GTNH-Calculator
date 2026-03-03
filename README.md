@@ -284,6 +284,26 @@ factor      = 1000.0
 description = "Kilowatt"
 ```
 
+## Jupyter Notebook
+
+You can also use the calculator in Jupyter notebooks with rich HTML output:
+
+```python
+from gtnh_calc.notebook import *
+
+x = 100 * EU
+x / (5 * tick)         # → 20 EU/tick  (colored HTML display)
+x >> RF                # → 400 RF
+
+# Custom functions work with dimensional analysis
+def smeltery_to_ingot(x):
+    return x / (144 * L) * item
+
+smeltery_to_ingot(720 * L / s)  # → 5 item/second
+```
+
+A demo notebook is included as `demo.ipynb`.
+
 ## Project Structure
 
 ```
@@ -296,7 +316,9 @@ gtnh_calc/
   repl.py               Interactive REPL
   theme.py              Color & styling (ANSI)
   workspace.py          Save/load user variables
+  notebook.py           Jupyter notebook integration
   units.toml            Default unit/constant definitions
+demo.ipynb              Jupyter notebook demo
 ```
 
 ## Requirements
