@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import code
 import math
 import readline  # noqa: F401 – enables arrow-key history in InteractiveConsole
@@ -9,8 +10,35 @@ import rlcompleter  # noqa: F401 – enables tab completion
 import sys
 from pathlib import Path
 
+from . import theme
+from .quantity import Quantity
 from .registry import UnitRegistry
 from .workspace import list_user_variables, load_workspace, save_workspace
+
+
+class _ColorConsole(code.InteractiveConsole):
+    """InteractiveConsole that colorizes Quantity results and uses a colored prompt."""
+
+    def runsource(self, source: str, filename: str = "<input>", symbol: str = "single") -> bool:  # noqa: E501
+        # We intercept the display by temporarily replacing sys.displayhook
+        old_hook = sys.displayhook
+        sys.displayhook = self._color_displayhook
+        try:
+            return super().runsource(source, filename, symbol)
+        finally:
+            sys.displayhook = old_hook
+
+    @staticmethod
+    def _color_displayhook(value: object) -> None:
+        if value is None:
+            return
+        # Store in _ as usual
+        import builtins
+        builtins._ = value  # type: ignore[attr-defined]
+        if isinstance(value, Quantity) and theme.is_enabled():
+            print(value.colored_repr())
+        else:
+            print(repr(value))
 
 
 def _build_full_namespace(registry: UnitRegistry) -> dict:
@@ -33,8 +61,54 @@ def _build_full_namespace(registry: UnitRegistry) -> dict:
     return ns
 
 
+def _build_banner() -> str:
+    """Build the welcome banner, with or without colors."""
+    ver = "0.1.2"
+    if not theme.is_enabled():
+        return (
+            "\n"
+            f"  GTNH Calculator v{ver}\n"
+            "  ══════════════════════════════════════════════\n"
+            "  Define:    x = 100 * EU\n"
+            "  Compute:   x / (5 * tick)\n"
+            "  Convert:   x >> RF   or   x.to(RF)\n"
+            "  List:      units()\n"
+            "  Save/Load: save()  load()  who()\n"
+            "  Exit:      exit() or Ctrl+D\n"
+        )
+
+    title = theme.style_banner_title(f"  ⚡ GTNH Calculator v{ver}")
+    line = theme.style_banner_line("  ══════════════════════════════════════════════")
+    rows = [
+        (theme.style_banner_key("  Define:   "), theme.style_banner_example(" x = 100 * EU")),
+        (theme.style_banner_key("  Compute:  "), theme.style_banner_example(" x / (5 * tick)")),
+        (theme.style_banner_key("  Convert:  "), theme.style_banner_example(" x >> RF") + theme.style_dim("   or   ") + theme.style_banner_example("x.to(RF)")),
+        (theme.style_banner_key("  List:     "), theme.style_banner_example(" units()")),
+        (theme.style_banner_key("  Save/Load:"), theme.style_banner_example(" save()  load()  who()")),
+        (theme.style_banner_key("  Exit:     "), theme.style_banner_example(" exit()") + theme.style_dim(" or ") + theme.style_banner_example("Ctrl+D")),
+    ]
+    body = "\n".join(k + v for k, v in rows)
+    return f"\n{title}\n{line}\n{body}\n"
+
+
 def main() -> None:
     """Entry point for the GTNH Calculator REPL."""
+    # --- CLI arguments ---
+    parser = argparse.ArgumentParser(
+        prog="gtnh-calc",
+        description="Interactive unit calculator for GTNH",
+    )
+    parser.add_argument(
+        "--plain",
+        action="store_true",
+        help="Disable colors and fancy formatting",
+    )
+    args = parser.parse_args()
+
+    # --- Color setup ---
+    if args.plain or not theme.auto_detect():
+        theme.set_enabled(False)
+
     registry = UnitRegistry()
 
     # Determine config file: CWD first, then package default
@@ -108,17 +182,12 @@ def main() -> None:
     import atexit
     atexit.register(readline.write_history_file, str(history_file))
 
-    banner = (
-        "\n"
-        "  GTNH Calculator v0.1.1\n"
-        "  ══════════════════════════════════════════════\n"
-        "  Define:    x = 100 * EU\n"
-        "  Compute:   x / (5 * tick)\n"
-        "  Convert:   x >> RF   or   x.to(RF)\n"
-        "  List:      units()\n"
-        "  Save/Load: save()  load()  who()\n"
-        "  Exit:      exit() or Ctrl+D\n"
-    )
+    banner = _build_banner()
 
-    console = code.InteractiveConsole(locals=namespace)
-    console.interact(banner=banner, exitmsg="Exiting...")
+    if theme.is_enabled():
+        console = _ColorConsole(locals=namespace)
+        sys.ps1 = theme.prompt_ps1()
+        sys.ps2 = theme.prompt_ps2()
+    else:
+        console = code.InteractiveConsole(locals=namespace)
+    console.interact(banner=banner, exitmsg=theme.style_dim("Exiting...") if theme.is_enabled() else "Exiting...")

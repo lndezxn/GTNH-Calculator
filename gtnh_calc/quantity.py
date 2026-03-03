@@ -5,6 +5,8 @@ from __future__ import annotations
 import math
 from typing import Union
 
+from . import theme
+
 Number = Union[int, float]
 
 
@@ -111,6 +113,57 @@ class Unit:
             denom = "*".join(denom_parts)
             return f"{numer}/{denom}"
         return numer if numer != "1" else ""
+
+    def format_colored(self) -> str:
+        """Format the unit with ANSI colors."""
+        if not self.dims:
+            return ""
+
+        numer_parts: list[str] = []
+        denom_parts: list[str] = []
+
+        for dim in sorted(self.dims.keys()):
+            exp = self.dims[dim]
+            label = self.labels.get(dim, dim)
+            if exp > 0:
+                if exp == 1:
+                    numer_parts.append(theme.style_unit(label))
+                elif exp == int(exp):
+                    numer_parts.append(
+                        theme.style_unit(label)
+                        + theme.style_operator("^")
+                        + theme.style_number(str(int(exp)))
+                    )
+                else:
+                    numer_parts.append(
+                        theme.style_unit(label)
+                        + theme.style_operator("^")
+                        + theme.style_number(str(exp))
+                    )
+            elif exp < 0:
+                aexp = -exp
+                if aexp == 1:
+                    denom_parts.append(theme.style_unit(label))
+                elif aexp == int(aexp):
+                    denom_parts.append(
+                        theme.style_unit(label)
+                        + theme.style_operator("^")
+                        + theme.style_number(str(int(aexp)))
+                    )
+                else:
+                    denom_parts.append(
+                        theme.style_unit(label)
+                        + theme.style_operator("^")
+                        + theme.style_number(str(aexp))
+                    )
+
+        sep = theme.style_operator("*")
+        numer = sep.join(numer_parts) if numer_parts else theme.style_number("1")
+
+        if denom_parts:
+            denom = sep.join(denom_parts)
+            return numer + theme.style_operator("/") + denom
+        return numer if numer_parts else ""
 
     def __repr__(self) -> str:
         return self.format() or "(dimensionless)"
@@ -436,6 +489,14 @@ class Quantity:
     def __repr__(self) -> str:
         val_str = self._format_number(self.value)
         unit_str = self.unit.format()
+        if unit_str:
+            return f"{val_str} {unit_str}"
+        return val_str
+
+    def colored_repr(self) -> str:
+        """Return a colored string representation."""
+        val_str = theme.style_number(self._format_number(self.value))
+        unit_str = self.unit.format_colored()
         if unit_str:
             return f"{val_str} {unit_str}"
         return val_str

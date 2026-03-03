@@ -14,6 +14,7 @@ import types
 from pathlib import Path
 
 from .quantity import Quantity, Unit
+from . import theme
 
 # Names that belong to the REPL infrastructure and should never be saved.
 _BUILTIN_NAMES: set[str] = {
@@ -159,7 +160,7 @@ def save_workspace(
 
     for name in candidates:
         if name not in namespace:
-            print(f"  Warning: '{name}' not found in namespace, skipping.")
+            print(theme.style_warning(f"  Warning: '{name}' not found in namespace, skipping."))
             skipped.append(name)
             continue
 
@@ -187,11 +188,11 @@ def save_workspace(
             saved.append(name)
             continue
 
-        print(f"  Warning: Cannot serialise '{name}' ({type(value).__name__}), skipping.")
+        print(theme.style_warning(f"  Warning: Cannot serialise '{name}' ({type(value).__name__}), skipping."))
         skipped.append(name)
 
     if not lines:
-        print("  Nothing to save.")
+        print(theme.style_dim("  Nothing to save."))
         return
 
     header = (
@@ -204,9 +205,9 @@ def save_workspace(
     )
 
     path.write_text(header + "\n" + "\n".join(lines) + "\n", encoding="utf-8")
-    print(f"  Saved {len(saved)} variable(s) to {path}: {', '.join(saved)}")
+    print(theme.style_success(f"  Saved {len(saved)} variable(s) to {path}: ") + ", ".join(theme.style_name(n) for n in saved))
     if skipped:
-        print(f"  Skipped: {', '.join(skipped)}")
+        print(theme.style_warning(f"  Skipped: {', '.join(skipped)}"))
 
 
 def load_workspace(
@@ -224,7 +225,7 @@ def load_workspace(
     """
     path = Path(filepath)
     if not path.exists():
-        print(f"  File not found: {path}")
+        print(theme.style_warning(f"  File not found: {path}"))
         return
 
     source = path.read_text(encoding="utf-8")
@@ -233,7 +234,7 @@ def load_workspace(
     try:
         exec(compile(source, str(path), "exec"), namespace)
     except Exception as exc:
-        print(f"  Error loading {path}: {exc}")
+        print(theme.style_error(f"  Error loading {path}: {exc}"))
         return
 
     after = set(namespace.keys())
@@ -242,9 +243,9 @@ def load_workspace(
 
     loaded = sorted(set(new_names + updated))
     if loaded:
-        print(f"  Loaded from {path}: {', '.join(loaded)}")
+        print(theme.style_success(f"  Loaded from {path}: ") + ", ".join(theme.style_name(n) for n in loaded))
     else:
-        print(f"  Loaded {path} (no new variables detected).")
+        print(theme.style_dim(f"  Loaded {path} (no new variables detected)."))
 
 
 def list_user_variables(namespace: dict, builtin_keys: set[str]) -> None:
@@ -256,15 +257,20 @@ def list_user_variables(namespace: dict, builtin_keys: set[str]) -> None:
     )
 
     if not user_vars:
-        print("  No user-defined variables.")
+        print(theme.style_dim("  No user-defined variables."))
         return
 
-    print("\n  User Variables")
-    print("  " + "─" * 50)
+    print()
+    print("  " + theme.style_header("User Variables"))
+    print("  " + theme.style_separator("─" * 50))
     for name, value in user_vars:
         type_name = type(value).__name__
-        val_str = repr(value)
-        if len(val_str) > 60:
-            val_str = val_str[:57] + "..."
-        print(f"    {name:<20s} = {val_str}  ({type_name})")
+        if isinstance(value, Quantity) and theme.is_enabled():
+            val_str = value.colored_repr()
+        else:
+            val_str = repr(value)
+            if len(val_str) > 60:
+                val_str = val_str[:57] + "..."
+            val_str = theme.style_value(val_str)
+        print(f"    {theme.style_name(f'{name:<20s}')} = {val_str}  {theme.style_type(f'({type_name})')}")
     print()

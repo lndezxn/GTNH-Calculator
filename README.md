@@ -15,6 +15,9 @@ uv run python main.py
 
 # Or, if installed:
 uv run gtnh-calc
+
+# Disable colors (plain mode):
+uv run gtnh-calc --plain
 ```
 
 ## Usage
@@ -291,6 +294,7 @@ gtnh_calc/
   quantity.py           Unit & Quantity classes (core math)
   registry.py           Config loader & namespace builder
   repl.py               Interactive REPL
+  theme.py              Color & styling (ANSI)
   workspace.py          Save/load user variables
   units.toml            Default unit/constant definitions
 ```

@@ -6,6 +6,7 @@ import tomllib
 from pathlib import Path
 
 from .quantity import Quantity, Unit
+from . import theme
 
 
 class UnitRegistry:
@@ -135,20 +136,31 @@ class UnitRegistry:
 
         def list_units() -> None:
             """Print all available units and constants."""
-            print("\n  Available Units")
-            print("  " + "─" * 50)
+            print()
+            print("  " + theme.style_header("Available Units"))
+            print("  " + theme.style_separator("─" * 50))
             for name in sorted(registry.units):
                 alias_list = [a for a, c in registry.aliases.items() if c == name]
-                alias_str = f"  (aliases: {', '.join(alias_list)})" if alias_list else ""
+                alias_str = (
+                    theme.style_dim("  (aliases: ")
+                    + ", ".join(theme.style_alias(a) for a in alias_list)
+                    + theme.style_dim(")")
+                ) if alias_list else ""
                 desc = registry.descriptions.get(name, "")
-                desc_str = f"  — {desc}" if desc else ""
-                print(f"    {name}{alias_str}{desc_str}")
+                desc_str = theme.style_description(f"  — {desc}") if desc else ""
+                print(f"    {theme.style_name(name)}{alias_str}{desc_str}")
 
             if registry.constants:
-                print("\n  Constants")
-                print("  " + "─" * 50)
+                print()
+                print("  " + theme.style_header("Constants"))
+                print("  " + theme.style_separator("─" * 50))
                 for name in sorted(registry.constants):
-                    print(f"    {name} = {registry.constants[name]}")
+                    q = registry.constants[name]
+                    if theme.is_enabled():
+                        val_repr = q.colored_repr()
+                    else:
+                        val_repr = repr(q)
+                    print(f"    {theme.style_name(name)} = {val_repr}")
             print()
 
         ns["units"] = list_units
