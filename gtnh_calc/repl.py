@@ -5,10 +5,23 @@ from __future__ import annotations
 import argparse
 import code
 import math
-import readline  # noqa: F401 – enables arrow-key history in InteractiveConsole
-import rlcompleter  # noqa: F401 – enables tab completion
 import sys
 from pathlib import Path
+
+# readline is not available on Windows by default.
+# Try pyreadline3 (a Windows-compatible drop-in) as fallback.
+try:
+    import readline
+except ImportError:
+    try:
+        import pyreadline3 as readline  # type: ignore[no-redef]  # noqa: F401
+    except ImportError:
+        readline = None  # type: ignore[assignment]
+
+try:
+    import rlcompleter  # noqa: F401
+except ImportError:
+    rlcompleter = None  # type: ignore[assignment]
 
 from . import theme
 from .quantity import Quantity
@@ -169,18 +182,19 @@ def main() -> None:
     namespace["who"] = who
     builtin_keys.update({"save", "load", "who"})
 
-    # Enable tab completion against the namespace
-    readline.set_completer(rlcompleter.Completer(namespace).complete)
-    readline.parse_and_bind("tab: complete")
+    # Enable tab completion and persistent history (when readline is available)
+    if readline is not None:
+        if rlcompleter is not None:
+            readline.set_completer(rlcompleter.Completer(namespace).complete)
+            readline.parse_and_bind("tab: complete")
 
-    # Persistent history file
-    history_file = Path.home() / ".gtnh_calc_history"
-    try:
-        readline.read_history_file(history_file)
-    except FileNotFoundError:
-        pass
-    import atexit
-    atexit.register(readline.write_history_file, str(history_file))
+        history_file = Path.home() / ".gtnh_calc_history"
+        try:
+            readline.read_history_file(str(history_file))
+        except (FileNotFoundError, OSError):
+            pass
+        import atexit
+        atexit.register(readline.write_history_file, str(history_file))
 
     banner = _build_banner()
 

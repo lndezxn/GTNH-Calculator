@@ -303,3 +303,15 @@ gtnh_calc/
 
 - Python ≥ 3.12
 - [uv](https://docs.astral.sh/uv/) (recommended package manager)
+
+### Windows Note
+
+On Windows, arrow-key history and tab completion require
+[pyreadline3](https://pypi.org/project/pyreadline3/):
+
+```bash
+uv add pyreadline3
+```
+
+This is optional — the calculator works without it, you just won't have
+up-arrow history or tab completion.

@@ -172,6 +172,33 @@ def style_dim(text: str) -> str:
     return _wrap(_DIM, text)
 
 
+# ── Windows VT100 support ────────────────────────────────────
+
+def _enable_windows_ansi() -> bool:
+    """Enable ANSI/VT100 escape sequences on Windows 10+.
+
+    Returns True if ANSI mode was successfully enabled (or not needed).
+    """
+    if sys.platform != "win32":
+        return True
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        # STD_OUTPUT_HANDLE = -11
+        handle = kernel32.GetStdHandle(-11)
+        # Get current mode
+        mode = ctypes.c_ulong()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        # ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+        new_mode = mode.value | 0x0004
+        if not kernel32.SetConsoleMode(handle, new_mode):
+            return False
+        return True
+    except Exception:
+        return False
+
+
 # ── Auto-detect ─────────────────────────────────────────────
 
 def auto_detect() -> bool:
@@ -189,4 +216,7 @@ def auto_detect() -> bool:
     term = os.environ.get("TERM", "")
     if term == "dumb":
         return False
+    # On Windows, try to enable VT100 processing
+    if sys.platform == "win32":
+        return _enable_windows_ansi()
     return True
