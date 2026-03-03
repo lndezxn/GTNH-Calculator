@@ -113,5 +113,64 @@ def who() -> None:
 for _helper_name in ("save", "load", "who"):
     __all__.append(_helper_name)
 
+
+# ---------------------------------------------------------------------------
+# Custom print() that renders Quantity with rich HTML in Jupyter
+# ---------------------------------------------------------------------------
+import builtins as _builtins
+import html as _html_mod
+
+_original_print = _builtins.print
+
+
+def _is_notebook() -> bool:
+    """Detect if we're running inside a Jupyter/IPython kernel."""
+    try:
+        from IPython import get_ipython
+        shell = get_ipython()
+        if shell is None:
+            return False
+        return shell.__class__.__name__ == "ZMQInteractiveShell"
+    except ImportError:
+        return False
+
+
+def print(*args: object, sep: str | None = None, end: str | None = None, **kwargs: object) -> None:  # noqa: A001
+    """print() replacement that renders Quantity objects with rich HTML in Jupyter.
+
+    Falls back to the built-in print for non-notebook environments or when
+    ``file`` is explicitly set (e.g. printing to stderr).
+    """
+    # If writing to a non-default stream, or not in a notebook, use normal print
+    if "file" in kwargs or not _is_notebook():
+        _original_print(*args, sep=sep, end=end, **kwargs)
+        return
+
+    # Check if any argument is a Quantity
+    has_quantity = any(isinstance(a, Quantity) for a in args)
+    if not has_quantity:
+        _original_print(*args, sep=sep, end=end, **kwargs)
+        return
+
+    # Build an HTML string
+    if sep is None:
+        sep = " "
+
+    html_parts: list[str] = []
+    for a in args:
+        if isinstance(a, Quantity):
+            html_parts.append(a._repr_html_())
+        else:
+            html_parts.append(_html_mod.escape(str(a)))
+
+    html_str = sep.join(html_parts)
+
+    from IPython.display import display, HTML
+    display(HTML(f'<span style="font-family:monospace">{html_str}</span>'))
+
+
+__all__.append("print")
+
+
 # Clean up temp names
 del _sys, _this, _name, _value, _ns, _helper_name
