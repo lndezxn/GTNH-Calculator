@@ -229,7 +229,9 @@ def load_workspace(
         return
 
     source = path.read_text(encoding="utf-8")
-    before = set(namespace.keys())
+    before_keys = set(namespace.keys())
+    # Snapshot values of existing keys so we can detect actual changes
+    before_values: dict[int, object] = {k: id(namespace[k]) for k in before_keys}
 
     try:
         exec(compile(source, str(path), "exec"), namespace)
@@ -237,9 +239,13 @@ def load_workspace(
         print(theme.style_error(f"  Error loading {path}: {exc}"))
         return
 
-    after = set(namespace.keys())
-    new_names = sorted(after - before)
-    updated = sorted(k for k in before & after if k in source)
+    after_keys = set(namespace.keys())
+    new_names = sorted(after_keys - before_keys)
+    # Only report existing names that were actually reassigned (identity changed)
+    updated = sorted(
+        k for k in before_keys & after_keys
+        if id(namespace[k]) != before_values[k]
+    )
 
     loaded = sorted(set(new_names + updated))
     if loaded:

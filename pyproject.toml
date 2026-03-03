@@ -1,6 +1,6 @@
 [project]
 name = "gtnh-calculator"
-version = "0.1.1"
+dynamic = ["version"]
 description = "Interactive unit calculator for GregTech: New Horizons (GTNH)"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -12,6 +12,9 @@ gtnh-calc = "gtnh_calc.repl:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "gtnh_calc/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["gtnh_calc"]

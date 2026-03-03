@@ -23,7 +23,7 @@ try:
 except ImportError:
     rlcompleter = None  # type: ignore[assignment]
 
-from . import theme
+from . import __version__, theme
 from .quantity import Quantity
 from .registry import UnitRegistry
 from .workspace import list_user_variables, load_workspace, save_workspace
@@ -76,7 +76,7 @@ def _build_full_namespace(registry: UnitRegistry) -> dict:
 
 def _build_banner() -> str:
     """Build the welcome banner, with or without colors."""
-    ver = "0.1.3"
+    ver = __version__
     if not theme.is_enabled():
         return (
             "\n"
