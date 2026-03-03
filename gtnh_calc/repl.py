@@ -76,7 +76,7 @@ def _build_full_namespace(registry: UnitRegistry) -> dict:
 
 def _build_banner() -> str:
     """Build the welcome banner, with or without colors."""
-    ver = "0.1.2"
+    ver = "0.1.3"
     if not theme.is_enabled():
         return (
             "\n"
