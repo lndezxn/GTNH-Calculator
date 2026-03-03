@@ -120,6 +120,47 @@ The REPL provides common math helpers:
 
 This prints every registered unit (with aliases) and all pre-defined constants.
 
+### Saving and loading variables
+
+You can persist your variables to a file and reload them in a future session:
+
+```python
+>>> x = 100 * EU
+>>> power = x / (5 * tick)
+>>> recipe_cost = 2048 * EU
+
+>>> save()                         # save all user variables to workspace.py
+  Saved 3 variable(s) to workspace.py: power, recipe_cost, x
+
+>>> save("x", "power")            # save only specific variables
+  Saved 2 variable(s) to workspace.py: x, power
+
+>>> save(file="my_project.py")    # save to a custom file
+```
+
+In a later session:
+
+```python
+>>> load()                         # load from workspace.py
+  Loaded from workspace.py: power, recipe_cost, x
+
+>>> load("my_project.py")         # load from a custom file
+```
+
+The `who()` command shows all user-defined variables in the current session:
+
+```python
+>>> who()
+  User Variables
+  ──────────────────────────────────────────────────
+    power                = 20 EU/tick  (Quantity)
+    recipe_cost          = 2048 EU  (Quantity)
+    x                    = 100 EU  (Quantity)
+```
+
+The saved file (`workspace.py`) is plain Python that you can view and edit
+by hand. It uses the same syntax you type in the REPL.
+
 ### Extracting raw numbers
 
 Use the `.val` property to get the numeric value in the quantity's own unit
@@ -250,6 +291,7 @@ gtnh_calc/
   quantity.py           Unit & Quantity classes (core math)
   registry.py           Config loader & namespace builder
   repl.py               Interactive REPL
+  workspace.py          Save/load user variables
   units.toml            Default unit/constant definitions
 ```
 

@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from .registry import UnitRegistry
+from .workspace import list_user_variables, load_workspace, save_workspace
 
 
 def _build_full_namespace(registry: UnitRegistry) -> dict:
@@ -60,6 +61,40 @@ def main() -> None:
 
     namespace = _build_full_namespace(registry)
 
+    # Snapshot the built-in keys so we can distinguish user variables later
+    builtin_keys = set(namespace.keys())
+
+    # --- Save / Load / Who helpers ---
+    def save(*names: str, file: str = "workspace.py") -> None:
+        """Save variables to a file.
+
+        Usage:
+            save()                   — save all user-defined variables
+            save("x", "y")          — save only x and y
+            save(file="my.py")      — save all to a custom file
+            save("x", file="my.py") — save x to a custom file
+        """
+        name_list = list(names) if names else None
+        save_workspace(namespace, builtin_keys, names=name_list, filepath=file)
+
+    def load(file: str = "workspace.py") -> None:
+        """Load variables from a file.
+
+        Usage:
+            load()              — load from workspace.py
+            load("my.py")      — load from a custom file
+        """
+        load_workspace(namespace, filepath=file)
+
+    def who() -> None:
+        """List all user-defined variables."""
+        list_user_variables(namespace, builtin_keys)
+
+    namespace["save"] = save
+    namespace["load"] = load
+    namespace["who"] = who
+    builtin_keys.update({"save", "load", "who"})
+
     # Enable tab completion against the namespace
     readline.set_completer(rlcompleter.Completer(namespace).complete)
     readline.parse_and_bind("tab: complete")
@@ -75,12 +110,13 @@ def main() -> None:
 
     banner = (
         "\n"
-        "  GTNH Calculator v0.1.0\n"
+        "  GTNH Calculator v0.1.1\n"
         "  ══════════════════════════════════════════════\n"
         "  Define:    x = 100 * EU\n"
         "  Compute:   x / (5 * tick)\n"
         "  Convert:   x >> RF   or   x.to(RF)\n"
         "  List:      units()\n"
+        "  Save/Load: save()  load()  who()\n"
         "  Exit:      exit() or Ctrl+D\n"
     )
 

@@ -1,6 +1,6 @@
 [project]
 name = "gtnh-calculator"
-version = "0.1.0"
+version = "0.1.1"
 description = "Interactive unit calculator for GregTech: New Horizons (GTNH)"
 readme = "README.md"
 requires-python = ">=3.12"
