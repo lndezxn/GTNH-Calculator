@@ -56,6 +56,7 @@ description = "Hour (60 minutes)"
 [units.L]
 dimension   = "volume"
 factor      = 1.0
+aliases     = ["l"]
 description = "Liter — base volume unit (= 1 mB)"
 
 [units.mB]
@@ -82,6 +83,13 @@ dimension   = "count"
 factor      = 64.0
 aliases     = ["stacks"]
 description = "Stack (64 items)"
+
+# ── Burn Value ───────────────────────────────────────────────
+[units.BV]
+dimension   = "burn"
+factor      = 1.0
+aliases     = ["bv"]
+description = "Burn balue"
 
 # ── Voltage-tier constants (EU/t) ───────────────────────────
 [constants]

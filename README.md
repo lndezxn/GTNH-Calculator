@@ -302,8 +302,6 @@ def smeltery_to_ingot(x):
 smeltery_to_ingot(720 * L / s)  # → 5 item/second
 ```
 
-A demo notebook is included as `demo.ipynb`.
-
 ## Project Structure
 
 ```
@@ -318,7 +316,7 @@ gtnh_calc/
   workspace.py          Save/load user variables
   notebook.py           Jupyter notebook integration
   units.toml            Default unit/constant definitions
-demo.ipynb              Jupyter notebook demo
+instances/              Example usage scripts and notebooks
 ```
 
 ## Requirements
