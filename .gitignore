@@ -20,5 +20,4 @@ build/
 Thumbs.db
 
 # GTNH Calculator
-*workspace.py
 .gtnh_calc_history
